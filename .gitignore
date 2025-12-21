@@ -1,0 +1,3 @@
+node_modules
+.rom_cache.json
+.DS_Store
