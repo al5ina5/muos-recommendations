@@ -1,6 +1,4 @@
-import { Collection } from '../recommendations.js';
-
-export const FRANCHISES: Collection[] = [
+export const FRANCHISES = [
     {
         id: 'franchise-zelda',
         title: 'The Legend of Zelda',

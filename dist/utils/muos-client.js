@@ -67,8 +67,19 @@ export class MuOSClient {
         });
     }
     async listRomsRecursively(basePath) {
-        // Using find to get all files recursively
-        const output = await this.execCommand(`find "${basePath}" -type f \\( -name "*.gba" -o -name "*.sfc" -o -name "*.nes" -o -name "*.md" -o -name "*.gen" -o -name "*.cue" -o -name "*.chd" -o -name "*.pbp" \\)`);
+        // Using find with -iname for case-insensitivity and -L to follow symlinks
+        // Expanded extension list to include more common retro formats
+        const extensions = [
+            '*.gba', '*.gbc', '*.gb',
+            '*.sfc', '*.smc', '*.smk', '*.snes',
+            '*.nes', '*.fc',
+            '*.md', '*.gen', '*.bin', '*.smd',
+            '*.cue', '*.chd', '*.pbp', '*.iso', '*.img',
+            '*.zip', '*.7z',
+            '*.sh', '*.port', '*.png', '*.m3u', '*.scummvm', '*.p8', '*.p8.png'
+        ];
+        const nameArgs = extensions.map(ext => `-iname "${ext}"`).join(' -o ');
+        const output = await this.execCommand(`find -L "${basePath}" -type f \\( ${nameArgs} \\)`);
         return output.split('\n').filter(line => line.trim() !== '');
     }
     async disconnect() {

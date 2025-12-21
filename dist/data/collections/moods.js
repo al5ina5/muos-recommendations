@@ -1,6 +1,4 @@
-import { Collection } from '../recommendations.js';
-
-export const MOODS: Collection[] = [
+export const MOODS = [
     {
         id: 'mood-cozy',
         title: 'Cozy & Relaxing',

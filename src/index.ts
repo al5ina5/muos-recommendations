@@ -6,8 +6,9 @@ import { MuOSClient } from './utils/muos-client.js';
 import { RomMatcher, RomFile } from './utils/matcher.js';
 import { COLLECTIONS, Collection } from './data/recommendations.js';
 
-const CACHE_FILE = path.join(process.cwd(), '.rom_cache.json');
-const COLLECTION_CACHE_DIR = path.join(process.cwd(), 'collections_cache');
+const CACHE_FILE = path.join(process.cwd(), '.cache', 'cache.json');
+const SETTINGS_FILE = path.join(process.cwd(), '.cache', 'settings.json');
+const COLLECTION_CACHE_DIR = path.join(process.cwd(), '.cache', 'collections');
 const COLLECTION_PATH = '/mnt/mmc/MUOS/info/collection'; // Standard SSH path for muOS collections
 
 const MUOS_SYSTEM_IDS: Record<string, string> = {
@@ -18,7 +19,17 @@ const MUOS_SYSTEM_IDS: Record<string, string> = {
     'PS1': 'PS',
     'GB': 'GB',
     'GBC': 'GBC',
-    'Arcade': 'ARCADE'
+    'Arcade': 'ARCADE',
+    'N64': 'N64',
+    'PCE': 'PCE',
+    'NEOGEO': 'NEOGEO',
+    'PICO8': 'PICO8',
+    'PORTS': 'PORTS',
+    'NDS': 'NDS',
+    'PSP': 'PSP',
+    'DREAMCAST': 'DREAMCAST',
+    'GG': 'GG',
+    'NGPC': 'NGPC'
 };
 
 function sanitizeFilename(name: string): string {
@@ -30,17 +41,43 @@ function cleanGameTitle(name: string): string {
     return name
         .replace(/\s*\([^)]*\)/g, '')
         .replace(/\s*\[[^\]]*\]/g, '')
+        .replace(/_s\b/g, "'s")  // Yoshi_s -> Yoshi's
+        .replace(/_t\b/g, "'t")  // Don_t -> Don't
+        .replace(/_n\b/g, "'n")  // Rock_n -> Rock'n
+        .replace(/_ll\b/g, "'ll") // You_ll -> You'll
+        .replace(/_re\b/g, "'re") // They_re -> They're
+        .replace(/_ve\b/g, "'ve") // I_ve -> I've
+        .replace(/_d\b/g, "'d")   // I_d -> I'd
         .trim();
 }
 
-async function main() {
-    console.log(chalk.cyan.bold('\n========================================'));
-    console.log(chalk.cyan.bold('   muOS COLLECTION GENERATOR & DEPLOYER '));
-    console.log(chalk.cyan.bold('========================================'));
-    console.log(chalk.white(' This tool helps you create and deploy high-quality'));
-    console.log(chalk.white(' game collections to your muOS-powered retro device.'));
-    console.log(chalk.white(' Choose from curated essentials, franchises, and more.\n'));
+interface Settings {
+    ip: string;
+    romPath: string;
+    useCache: boolean;
+    categories: string[];
+    missingHandle: 'mark' | 'omit';
+    useNumbers: boolean;
+    confirmDeploy: boolean;
+    clearExisting: boolean;
+}
 
+function displaySettings(settings: Settings): void {
+    console.log(chalk.cyan.bold('\n--- Pre-configured Settings ---'));
+    console.log(chalk.white(`  Device IP: ${chalk.yellow(settings.ip)}`));
+    console.log(chalk.white(`  ROMs Path: ${chalk.yellow(settings.romPath)}`));
+    console.log(chalk.white(`  Use ROM Cache: ${chalk.yellow(settings.useCache ? 'Yes' : 'No')}`));
+    console.log(chalk.white(`  Categories: ${chalk.yellow(settings.categories.join(', '))}`));
+    console.log(chalk.white(`  Missing ROMs: ${chalk.yellow(settings.missingHandle === 'mark' ? 'Mark with [X]' : 'Omit')}`));
+    console.log(chalk.white(`  Display Numbers: ${chalk.yellow(settings.useNumbers ? 'Yes' : 'No')}`));
+    console.log(chalk.white(`  Auto Deploy: ${chalk.yellow(settings.confirmDeploy ? 'Yes' : 'No')}`));
+    if (settings.confirmDeploy) {
+        console.log(chalk.white(`  Clear Existing: ${chalk.yellow(settings.clearExisting ? 'Yes' : 'No')}`));
+    }
+    console.log(chalk.cyan.bold('--------------------------------\n'));
+}
+
+async function promptForSettings(): Promise<Settings> {
     const connectionQuestions = [
         {
             type: 'input',
@@ -51,22 +88,6 @@ async function main() {
     ];
 
     const connectionAnswers = await inquirer.prompt(connectionQuestions);
-    const client = new MuOSClient();
-
-    try {
-        console.log(chalk.yellow('\nConnecting to device...'));
-        await client.connect({
-            host: connectionAnswers.ip,
-            username: 'root',
-            password: 'root',
-        });
-        console.log(chalk.green('Connected!'));
-    } catch (error: any) {
-        console.error(chalk.red('\nFailed to connect to device:'), error.message);
-        console.log(chalk.yellow('Please check your IP and ensure SSH is enabled on your muOS device.\n'));
-        return;
-    }
-
     const hasCache = fs.existsSync(CACHE_FILE);
 
     const preferenceQuestions = [
@@ -90,6 +111,7 @@ async function main() {
             choices: [
                 { name: 'Essentials (Top 50 lists)', value: 'Essentials', checked: true },
                 { name: 'Franchise Collections (Zelda, Mario, etc.)', value: 'Franchises', checked: true },
+                { name: 'Hardware & Ports (PICO-8, Native Engine, etc.)', value: 'Special', checked: true },
                 { name: 'Mood & Vibe based (Cozy, Cinematic, etc.)', value: 'Moods', checked: false },
                 { name: 'Genre Specials (RPGs, Platformers, etc.)', value: 'Genres', checked: false },
             ]
@@ -125,10 +147,75 @@ async function main() {
         }
     ];
 
-    const answers = {
+    const preferences = await inquirer.prompt(preferenceQuestions);
+
+    // Ensure useCache has a default value if not prompted
+    const useCache = preferences.useCache !== undefined ? preferences.useCache : false;
+
+    return {
         ...connectionAnswers,
-        ...(await inquirer.prompt(preferenceQuestions))
-    };
+        ...preferences,
+        useCache
+    } as Settings;
+}
+
+async function main() {
+    console.log(chalk.cyan.bold('\n========================================'));
+    console.log(chalk.cyan.bold('   muOS COLLECTION GENERATOR & DEPLOYER '));
+    console.log(chalk.cyan.bold('========================================'));
+    console.log(chalk.white(' This tool helps you create and deploy high-quality'));
+    console.log(chalk.white(' game collections to your muOS-powered retro device.'));
+    console.log(chalk.white(' Choose from curated essentials, franchises, and more.\n'));
+
+    let answers: Settings;
+    const hasSettingsCache = fs.existsSync(SETTINGS_FILE);
+
+    // Check if settings cache exists and ask if user wants to use it
+    if (hasSettingsCache) {
+        const useCachedSettings = await inquirer.prompt([
+            {
+                type: 'confirm',
+                name: 'runLikeBefore',
+                message: 'Use saved settings?',
+                default: true,
+            }
+        ]);
+
+        if (useCachedSettings.runLikeBefore) {
+            const cachedSettings = fs.readJsonSync(SETTINGS_FILE) as Settings;
+            // Re-evaluate useCache based on whether ROM cache file exists
+            const hasRomCache = fs.existsSync(CACHE_FILE);
+            cachedSettings.useCache = cachedSettings.useCache && hasRomCache;
+            displaySettings(cachedSettings);
+            answers = cachedSettings;
+        } else {
+            // User wants to configure new settings
+            answers = await promptForSettings();
+            // Save new settings
+            fs.writeJsonSync(SETTINGS_FILE, answers);
+        }
+    } else {
+        // First run - no settings cache
+        answers = await promptForSettings();
+        // Save settings for next time
+        fs.writeJsonSync(SETTINGS_FILE, answers);
+    }
+
+    const client = new MuOSClient();
+
+    try {
+        console.log(chalk.yellow('\nConnecting to device...'));
+        await client.connect({
+            host: answers.ip,
+            username: 'root',
+            password: 'root',
+        });
+        console.log(chalk.green('Connected!'));
+    } catch (error: any) {
+        console.error(chalk.red('\nFailed to connect to device:'), error.message);
+        console.log(chalk.yellow('Please check your IP and ensure SSH is enabled on your muOS device.\n'));
+        return;
+    }
 
     try {
         let roms: string[] = [];
@@ -146,14 +233,38 @@ async function main() {
 
         // Process ROMs for the matcher
         const romFiles: RomFile[] = roms
-            .filter(r => !path.basename(r).startsWith('._'))
+            .filter(r => {
+                // Filter out macOS metadata files
+                if (path.basename(r).startsWith('._')) return false;
+
+                const fileName = path.basename(r);
+                const ext = path.extname(fileName).toLowerCase();
+                const lowerPath = r.toLowerCase();
+
+                // Filter out image files that are not PICO-8 games
+                // PICO-8 uses .p8.png extension, so regular .png files should be excluded
+                if (ext === '.png' && !fileName.toLowerCase().endsWith('.p8.png')) {
+                    return false;
+                }
+
+                // Filter out files in Imgs/Images/Artwork folders (image directories)
+                const pathParts = lowerPath.split('/');
+                if (pathParts.some(part => part === 'imgs' || part === 'images' || part === 'artwork' || part === 'covers')) {
+                    return false;
+                }
+
+                return true;
+            })
             .map(r => {
                 const fileName = path.basename(r);
                 const ext = path.extname(fileName);
+                const parts = r.split('/');
+                const parentDir = parts.length > 1 ? parts[parts.length - 2] : undefined;
                 return {
                     fullName: fileName,
                     name: fileName.replace(ext, ''),
                     path: r,
+                    parentDir
                 };
             });
 
@@ -169,15 +280,22 @@ async function main() {
             const collectionLocalPath = path.join(COLLECTION_CACHE_DIR, collectionDirName);
             await fs.ensureDir(collectionLocalPath);
 
+            // Process all games in parallel for matching
+            const gameMatches = await Promise.all(
+                collection.games.map(async (game, i) => {
+                    const match = matcher.findMatch(game.name, game.system);
+                    return { game, match, index: i };
+                })
+            );
+
+            // Prepare all file writes in parallel
+            const writePromises: Promise<void>[] = [];
             let foundCount = 0;
 
-            for (let i = 0; i < collection.games.length; i++) {
-                const game = collection.games[i];
-                const match = matcher.findMatch(game.name, game.system);
-
-                // 1. Determine local game and display name
-                const rawName = match ? match.name : game.name;
-                const cleanName = cleanGameTitle(rawName);
+            for (const { game, match, index: i } of gameMatches) {
+                // 1. Determine display name
+                // Priority: explicit display override > collection name > cleaned ROM filename
+                const cleanName = game.display || game.name;
                 const orderPrefix = answers.useNumbers ? `${(i + 1).toString().padStart(2, '0')}. ` : '';
 
                 const gameDisplayName = match ? `${orderPrefix}${cleanName}` : `${orderPrefix}[X] ${cleanName}`;
@@ -193,17 +311,23 @@ async function main() {
                 const safeFileName = sanitizeFilename(`${orderPrefix}${cleanName}`);
                 const cfgFileName = `${safeFileName}.cfg`;
 
-                try {
-                    await fs.writeFile(path.join(collectionLocalPath, cfgFileName), cfgContent);
-                } catch (writeErr: any) {
-                    console.error(chalk.red(`  ! Failed to write local file: ${cfgFileName}`), writeErr.message);
-                    throw writeErr;
-                }
+                // Queue file write (will execute in parallel)
+                writePromises.push(
+                    fs.writeFile(path.join(collectionLocalPath, cfgFileName), cfgContent)
+                        .catch((writeErr: any) => {
+                            console.error(chalk.red(`  ! Failed to write local file: ${cfgFileName}`), writeErr.message);
+                            throw writeErr;
+                        })
+                );
 
                 if (match) foundCount++;
             }
 
-            console.log(chalk.white(`- Generated '${collectionDirName}' (${foundCount}/${collection.games.length} matched)`));
+            // Execute all file writes in parallel
+            await Promise.all(writePromises);
+
+            const percentage = ((foundCount / collection.games.length) * 100).toFixed(1);
+            console.log(chalk.white(`- Generated '${collectionDirName}' (${foundCount}/${collection.games.length} matched, ${percentage}%)`));
         }
 
         if (answers.confirmDeploy) {

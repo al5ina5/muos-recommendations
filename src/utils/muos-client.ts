@@ -85,7 +85,8 @@ export class MuOSClient {
             '*.nes', '*.fc',
             '*.md', '*.gen', '*.bin', '*.smd',
             '*.cue', '*.chd', '*.pbp', '*.iso', '*.img',
-            '*.zip', '*.7z'
+            '*.zip', '*.7z',
+            '*.sh', '*.port', '*.png', '*.m3u', '*.scummvm', '*.p8', '*.p8.png'
         ];
         const nameArgs = extensions.map(ext => `-iname "${ext}"`).join(' -o ');
         const output = await this.execCommand(`find -L "${basePath}" -type f \\( ${nameArgs} \\)`);

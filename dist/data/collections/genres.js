@@ -1,6 +1,4 @@
-import { Collection } from '../recommendations.js';
-
-export const GENRES: Collection[] = [
+export const GENRES = [
     {
         id: 'genre-rpg',
         title: 'RPG Royalty',

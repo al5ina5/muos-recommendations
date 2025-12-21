@@ -1,6 +1,4 @@
-import { Collection } from '../recommendations.js';
-
-export const ESSENTIALS: Collection[] = [
+export const ESSENTIALS = [
     {
         id: 'top-50-gba',
         title: 'Essential Game Boy Advance Games',
