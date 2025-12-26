@@ -66,21 +66,28 @@ export class MuOSClient {
             });
         });
     }
-    async listRomsRecursively(basePath) {
+    async listRomsRecursively(basePath, progressCallback) {
         // Using find with -iname for case-insensitivity and -L to follow symlinks
         // Expanded extension list to include more common retro formats
+        // Note: progressCallback is not used for SSH connections as progress tracking is difficult
         const extensions = [
             '*.gba', '*.gbc', '*.gb',
             '*.sfc', '*.smc', '*.smk', '*.snes',
             '*.nes', '*.fc',
             '*.md', '*.gen', '*.bin', '*.smd',
             '*.cue', '*.chd', '*.pbp', '*.iso', '*.img',
+            '*.nds', '*.ds',
             '*.zip', '*.7z',
             '*.sh', '*.port', '*.png', '*.m3u', '*.scummvm', '*.p8', '*.p8.png'
         ];
         const nameArgs = extensions.map(ext => `-iname "${ext}"`).join(' -o ');
         const output = await this.execCommand(`find -L "${basePath}" -type f \\( ${nameArgs} \\)`);
-        return output.split('\n').filter(line => line.trim() !== '');
+        const roms = output.split('\n').filter(line => line.trim() !== '');
+        // Call progress callback with final count if provided
+        if (progressCallback) {
+            progressCallback(roms.length);
+        }
+        return roms;
     }
     async disconnect() {
         this.client.end();

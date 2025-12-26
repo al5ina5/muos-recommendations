@@ -24,7 +24,7 @@
   ],
   "author": "Sebastian Alsina <alsinas@me.com>",
   "license": "MIT-NC",
-  "description": "CLI tool to generate and deploy curated game collections for muOS-powered retro gaming devices",
+  "description": "CLI tool to generate and deploy curated game collections for retro gaming devices (muOS and SpruceOS)",
   "files": [
     "dist",
     "README.md",

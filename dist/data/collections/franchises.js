@@ -15,7 +15,9 @@ export const FRANCHISES = [
             { name: "The Legend of Zelda: Oracle of Ages", display: "Oracle of Ages [GBC]", system: "GBC" },
             { name: "The Legend of Zelda: Oracle of Seasons", display: "Oracle of Seasons [GBC]", system: "GBC" },
             { name: "The Legend of Zelda: The Minish Cap", display: "The Minish Cap [GBA]", system: "GBA" },
-            { name: "The Legend of Zelda: A Link to the Past & Four Swords", display: "A Link to the Past & Four Swords [GBA]", system: "GBA" }
+            { name: "The Legend of Zelda: A Link to the Past & Four Swords", display: "A Link to the Past & Four Swords [GBA]", system: "GBA" },
+            { name: "The Legend of Zelda: Phantom Hourglass", display: "Phantom Hourglass [NDS]", system: "NDS" },
+            { name: "The Legend of Zelda: Spirit Tracks", display: "Spirit Tracks [NDS]", system: "NDS" }
         ]
     },
     {
@@ -39,7 +41,12 @@ export const FRANCHISES = [
             { name: "Super Mario Advance 3 - Yoshi's Island", system: "GBA" },
             { name: "Super Mario Advance 4 - Super Mario Bros. 3", system: "GBA" },
             { name: "Super Mario RPG: Legend of the Seven Stars", system: "SNES" },
-            { name: "Mario & Luigi: Superstar Saga", system: "GBA" }
+            { name: "Mario & Luigi: Superstar Saga", system: "GBA" },
+            { name: "New Super Mario Bros.", system: "NDS" },
+            { name: "Super Mario 64 DS", system: "NDS" },
+            { name: "Mario Kart DS", system: "NDS" },
+            { name: "Mario & Luigi: Partners in Time", system: "NDS" },
+            { name: "Mario & Luigi: Bowser's Inside Story", system: "NDS" }
         ]
     },
     {
@@ -52,7 +59,9 @@ export const FRANCHISES = [
             { name: "Metroid II: Return of Samus", system: "GB" },
             { name: "Super Metroid", system: "SNES" },
             { name: "Metroid Fusion", system: "GBA" },
-            { name: "Metroid: Zero Mission", system: "GBA" }
+            { name: "Metroid: Zero Mission", system: "GBA" },
+            { name: "Metroid Prime: Hunters", system: "NDS" },
+            { name: "Metroid Prime Pinball", system: "NDS" }
         ]
     },
     {
@@ -99,7 +108,10 @@ export const FRANCHISES = [
             { name: "Castlevania: Circle of the Moon", system: "GBA" },
             { name: "Castlevania: Harmony of Dissonance", system: "GBA" },
             { name: "Castlevania: Aria of Sorrow", system: "GBA" },
-            { name: "Castlevania II: Belmont's Revenge", system: "GB" }
+            { name: "Castlevania II: Belmont's Revenge", system: "GB" },
+            { name: "Castlevania: Dawn of Sorrow", system: "NDS" },
+            { name: "Castlevania: Portrait of Ruin", system: "NDS" },
+            { name: "Castlevania: Order of Ecclesia", system: "NDS" }
         ]
     },
     {
@@ -123,7 +135,16 @@ export const FRANCHISES = [
             { name: "Pokémon Snap", system: "N64" },
             { name: "Pokémon Stadium", system: "N64" },
             { name: "Pokémon Pinball: Ruby & Sapphire", system: "GBA" },
-            { name: "Pokémon Pinball", system: "GBC" }
+            { name: "Pokémon Pinball", system: "GBC" },
+            { name: "Pokémon Diamond", system: "NDS" },
+            { name: "Pokémon Pearl", system: "NDS" },
+            { name: "Pokémon Platinum", system: "NDS" },
+            { name: "Pokémon HeartGold", system: "NDS" },
+            { name: "Pokémon SoulSilver", system: "NDS" },
+            { name: "Pokémon Black", system: "NDS" },
+            { name: "Pokémon White", system: "NDS" },
+            { name: "Pokémon Black 2", system: "NDS" },
+            { name: "Pokémon White 2", system: "NDS" }
         ]
     },
     {
@@ -176,7 +197,10 @@ export const FRANCHISES = [
             { name: "Kirby 64: The Crystal Shards", system: "N64" },
             { name: "Kirby: Nightmare in Dream Land", system: "GBA" },
             { name: "Kirby & the Amazing Mirror", system: "GBA" },
-            { name: "Kirby's Dream Course", system: "SNES" }
+            { name: "Kirby's Dream Course", system: "SNES" },
+            { name: "Kirby: Canvas Curse", system: "NDS" },
+            { name: "Kirby: Squeak Squad", system: "NDS" },
+            { name: "Kirby Super Star Ultra", system: "NDS" }
         ]
     },
     {

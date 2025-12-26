@@ -110,7 +110,7 @@ export class RomMatcher {
     constructor(roms: RomFile[]) {
         this.roms = roms;
         this.matchCache = new Map();
-        
+
         // Pre-compute all normalized data
         this.normalizedRoms = roms.map(rom => {
             const normalizedName = normalizeName(rom.name);
@@ -118,11 +118,11 @@ export class RomMatcher {
             const normalizedParent = rom.parentDir ? normalizeName(rom.parentDir) : undefined;
             const tokens = getTokens(rom.name);
             const parentTokens = rom.parentDir ? getTokens(rom.parentDir) : [];
-            
+
             // Extract system folders from path
             const pathParts = rom.path.toLowerCase().split('/');
             const systemFolders = new Set(pathParts);
-            
+
             return {
                 ...rom,
                 normalizedName,
@@ -141,7 +141,7 @@ export class RomMatcher {
             if (rom.normalizedParent) {
                 keys.push(rom.normalizedParent);
             }
-            
+
             for (const key of keys) {
                 if (!this.exactMatchMap.has(key)) {
                     this.exactMatchMap.set(key, []);
@@ -162,11 +162,12 @@ export class RomMatcher {
             'PS1': ['ps', 'ps1', 'psx'],
             'Arcade': ['arcade', 'fbneo', 'mame', 'cps1', 'cps2', 'cps3', 'neogeo', 'atomiswave', 'naomi'],
             'N64': ['n64'],
+            'NDS': ['nds', 'ds', 'nintendods'],
             'PORTS': ['ports']
         };
 
         for (const [system, aliases] of Object.entries(systemAliases)) {
-            const systemRoms = this.normalizedRoms.filter(rom => 
+            const systemRoms = this.normalizedRoms.filter(rom =>
                 aliases.some(alias => rom.systemFolders.has(alias))
             );
             this.systemRomsMap.set(system, systemRoms);
@@ -205,6 +206,7 @@ export class RomMatcher {
             'PS1': ['ps', 'ps1', 'psx'],
             'Arcade': ['arcade', 'fbneo', 'mame', 'cps1', 'cps2', 'cps3', 'neogeo', 'atomiswave', 'naomi'],
             'N64': ['n64'],
+            'NDS': ['nds', 'ds', 'nintendods'],
             'PORTS': ['ports']
         };
 
@@ -231,12 +233,12 @@ export class RomMatcher {
 
             // Try exact matches using lookup map
             const exactMatches = this.exactMatchMap.get(normalizedTarget) || this.exactMatchMap.get(baseTarget) || [];
-            const systemMatch = exactMatches.find(rom => 
+            const systemMatch = exactMatches.find(rom =>
                 systemRoms!.includes(rom) &&
                 (rom.normalizedName === normalizedTarget ||
-                 rom.normalizedName === baseTarget ||
-                 rom.normalizedParent === normalizedTarget ||
-                 rom.normalizedParent === baseTarget)
+                    rom.normalizedName === baseTarget ||
+                    rom.normalizedParent === normalizedTarget ||
+                    rom.normalizedParent === baseTarget)
             );
             if (systemMatch) {
                 this.matchCache.set(cacheKey, systemMatch);
@@ -248,7 +250,7 @@ export class RomMatcher {
         const results = this.fuse.search(targetName);
         if (results.length > 0 && systemRoms) {
             const commonWords = ['super', 'world', 'advance', 'bros', 'game', 'games', 'land', 'island', 'the', 'plus', 'adventure', 'adventures', 'allstars'];
-            
+
             const bestInSystem = results.find(r => {
                 const rom = this.normalizedRoms.find(nr => nr.path === r.item.path);
                 if (!rom || !systemRoms!.includes(rom)) return false;
@@ -274,24 +276,27 @@ export class RomMatcher {
             }
         }
 
-        // 3. Fallback: Try matching without system context if no match found (but with higher confidence)
-        const globalBest = results.find(r => {
-            if (r.score! >= 0.1) return false; // Higher confidence for global fallback
+        // 3. Fallback: Only try global match if NO system context was provided
+        // If system context exists, we should NOT match across systems
+        if (!systemContext) {
+            const globalBest = results.find(r => {
+                if (r.score! >= 0.1) return false; // Higher confidence for global fallback
 
-            const rom = this.normalizedRoms.find(nr => nr.path === r.item.path);
-            if (!rom) return false;
+                const rom = this.normalizedRoms.find(nr => nr.path === r.item.path);
+                if (!rom) return false;
 
-            const allRomTokens = [...rom.tokens, ...rom.parentTokens];
-            const commonWords = ['super', 'world', 'advance', 'bros', 'game', 'games', 'land', 'island', 'the', 'plus', 'adventure', 'adventures', 'allstars'];
-            const hasSignificantOverlap = targetTokens.some(t =>
-                allRomTokens.includes(t) && !commonWords.includes(t)
-            );
+                const allRomTokens = [...rom.tokens, ...rom.parentTokens];
+                const commonWords = ['super', 'world', 'advance', 'bros', 'game', 'games', 'land', 'island', 'the', 'plus', 'adventure', 'adventures', 'allstars'];
+                const hasSignificantOverlap = targetTokens.some(t =>
+                    allRomTokens.includes(t) && !commonWords.includes(t)
+                );
 
-            return hasSignificantOverlap;
-        });
-        if (globalBest) {
-            this.matchCache.set(cacheKey, globalBest.item);
-            return globalBest.item;
+                return hasSignificantOverlap;
+            });
+            if (globalBest) {
+                this.matchCache.set(cacheKey, globalBest.item);
+                return globalBest.item;
+            }
         }
 
         this.matchCache.set(cacheKey, null);

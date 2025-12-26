@@ -20,3 +20,5 @@ if (!content.startsWith('#!/usr/bin/env node')) {
     console.log('✓ Shebang already present in dist/index.js');
 }
 
+
+

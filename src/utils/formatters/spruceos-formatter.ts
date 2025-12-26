@@ -1,0 +1,87 @@
+import { ICollectionFormatter, FormatGameOptions } from '../collection-formatter.js';
+import { Recommendation } from '../../data/recommendations.js';
+import { RomFile } from '../matcher.js';
+import path from 'path';
+
+// SpruceOS system name mapping (may be same as muOS, but keeping separate for clarity)
+const SPRUCEOS_SYSTEM_IDS: Record<string, string> = {
+    'GBA': 'GBA',
+    'SNES': 'SFC',
+    'NES': 'FC',
+    'Genesis': 'MD',
+    'PS1': 'PS',
+    'GB': 'GB',
+    'GBC': 'GBC',
+    'Arcade': 'ARCADE',
+    'N64': 'N64',
+    'PCE': 'PCE',
+    'NEOGEO': 'NEOGEO',
+    'PICO8': 'PICO8',
+    'PORTS': 'PORTS',
+    'NDS': 'NDS',
+    'PSP': 'PSP',
+    'DREAMCAST': 'DREAMCAST',
+    'GG': 'GG',
+    'NGPC': 'NGPC'
+};
+
+export interface SpruceOSGameEntry {
+    rom_file_path: string;
+    game_system_name: string;
+}
+
+export interface SpruceOSCollection {
+    collection_name: string;
+    game_list: SpruceOSGameEntry[];
+}
+
+export class SpruceOSFormatter implements ICollectionFormatter {
+    formatGame(game: Recommendation, match: RomFile | null, options: FormatGameOptions, relativePath?: string): string {
+        // For SpruceOS, formatGame returns JSON string for a single game entry
+        // This will be used to build the game_list array
+        const systemId = this.getSystemId(game.system);
+        const romPath = match ? match.path : `/mnt/ROM_NOT_FOUND/${game.system}/${game.name}`;
+
+        const gameEntry: SpruceOSGameEntry = {
+            rom_file_path: romPath,
+            game_system_name: systemId
+        };
+
+        return JSON.stringify(gameEntry);
+    }
+
+    formatCollection(collectionName: string, games: Array<{ game: Recommendation; match: RomFile | null; options: FormatGameOptions }>): SpruceOSCollection {
+        const gameList: SpruceOSGameEntry[] = [];
+
+        for (const { game, match, options } of games) {
+            if (!match && options.missingHandle === 'omit') continue;
+
+            const systemId = this.getSystemId(game.system);
+            const romPath = match ? match.path : `/mnt/ROM_NOT_FOUND/${game.system}/${game.name}`;
+
+            gameList.push({
+                rom_file_path: romPath,
+                game_system_name: systemId
+            });
+        }
+
+        return {
+            collection_name: collectionName,
+            game_list: gameList
+        };
+    }
+
+    getFileExtension(): string {
+        return '.json';
+    }
+
+    getCollectionPath(basePath: string, collectionTitle: string, system?: string): string {
+        // SpruceOS uses: /mnt/sdcard/Collections/collections.json
+        return path.join(basePath, 'Collections');
+    }
+
+    getSystemId(system: string): string {
+        return SPRUCEOS_SYSTEM_IDS[system] || system;
+    }
+}
+
