@@ -1,6 +1,6 @@
-import { ICollectionFormatter, FormatGameOptions } from '../collection-formatter.js';
-import { Recommendation } from '../../data/recommendations.js';
-import { RomFile } from '../matcher.js';
+import { ICollectionFormatter, FormatGameOptions, SpruceOSGameEntry, SpruceOSCollection } from '../../types.js';
+import type { Recommendation } from '../../data/recommendations.js';
+import type { RomFile } from '../matcher.js';
 import path from 'path';
 
 // SpruceOS system name mapping (may be same as muOS, but keeping separate for clarity)
@@ -24,16 +24,6 @@ const SPRUCEOS_SYSTEM_IDS: Record<string, string> = {
     'GG': 'GG',
     'NGPC': 'NGPC'
 };
-
-export interface SpruceOSGameEntry {
-    rom_file_path: string;
-    game_system_name: string;
-}
-
-export interface SpruceOSCollection {
-    collection_name: string;
-    game_list: SpruceOSGameEntry[];
-}
 
 export class SpruceOSFormatter implements ICollectionFormatter {
     formatGame(game: Recommendation, match: RomFile | null, options: FormatGameOptions, relativePath?: string): string {

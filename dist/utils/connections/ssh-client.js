@@ -1,41 +1,30 @@
 import { Client } from 'ssh2';
-import fs from 'fs-extra';
-import path from 'path';
-
-export interface SSHConfig {
-    host: string;
-    port?: number;
-    username: string;
-    password?: string;
-}
-
 export class MuOSClient {
-    private client: Client;
-    private sftp: any = null;
-
+    client;
+    sftp = null;
     constructor() {
         this.client = new Client();
     }
-
-    async connect(config: SSHConfig): Promise<void> {
+    async connect(config) {
         return new Promise((resolve, reject) => {
             this.client
                 .on('ready', resolve)
                 .on('error', reject)
                 .connect({
-                    host: config.host,
-                    port: config.port || 22,
-                    username: config.username,
-                    password: config.password,
-                });
+                host: config.host,
+                port: config.port || 22,
+                username: config.username,
+                password: config.password,
+            });
         });
     }
-
-    private async getSFTP(): Promise<any> {
-        if (this.sftp) return this.sftp;
+    async getSFTP() {
+        if (this.sftp)
+            return this.sftp;
         return new Promise((resolve, reject) => {
             this.client.sftp((err, sftp) => {
-                if (err) reject(err);
+                if (err)
+                    reject(err);
                 else {
                     this.sftp = sftp;
                     resolve(sftp);
@@ -43,40 +32,41 @@ export class MuOSClient {
             });
         });
     }
-
-    async execCommand(command: string): Promise<string> {
+    async execCommand(command) {
         return new Promise((resolve, reject) => {
             this.client.exec(command, (err, stream) => {
-                if (err) return reject(err);
+                if (err)
+                    return reject(err);
                 let output = '';
-                stream.on('data', (data: any) => output += data);
+                stream.on('data', (data) => output += data);
                 stream.on('close', () => resolve(output));
-                stream.stderr.on('data', (data: any) => console.error('STDERR:', data.toString()));
+                stream.stderr.on('data', (data) => console.error('STDERR:', data.toString()));
             });
         });
     }
-
-    async downloadFile(remotePath: string, localPath: string): Promise<void> {
+    async downloadFile(remotePath, localPath) {
         const sftp = await this.getSFTP();
         return new Promise((resolve, reject) => {
             sftp.fastGet(remotePath, localPath, (err) => {
-                if (err) reject(err);
-                else resolve();
+                if (err)
+                    reject(err);
+                else
+                    resolve();
             });
         });
     }
-
-    async uploadFile(localPath: string, remotePath: string): Promise<void> {
+    async uploadFile(localPath, remotePath) {
         const sftp = await this.getSFTP();
         return new Promise((resolve, reject) => {
             sftp.fastPut(localPath, remotePath, (err) => {
-                if (err) reject(err);
-                else resolve();
+                if (err)
+                    reject(err);
+                else
+                    resolve();
             });
         });
     }
-
-    async listRomsRecursively(basePath: string, progressCallback?: (count: number) => void): Promise<string[]> {
+    async listRomsRecursively(basePath, progressCallback) {
         // Using find with -iname for case-insensitivity and -L to follow symlinks
         // Expanded extension list to include more common retro formats
         // Note: progressCallback is not used for SSH connections as progress tracking is difficult
@@ -99,8 +89,7 @@ export class MuOSClient {
         }
         return roms;
     }
-
-    async disconnect(): Promise<void> {
+    async disconnect() {
         this.client.end();
     }
 }

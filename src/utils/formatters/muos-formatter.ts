@@ -1,6 +1,6 @@
-import { ICollectionFormatter, FormatGameOptions } from '../collection-formatter.js';
-import { Recommendation } from '../../data/recommendations.js';
-import { RomFile } from '../matcher.js';
+import { ICollectionFormatter, FormatGameOptions } from '../../types.js';
+import type { Recommendation } from '../../data/recommendations.js';
+import type { RomFile } from '../matcher.js';
 import path from 'path';
 
 const MUOS_SYSTEM_IDS: Record<string, string> = {
