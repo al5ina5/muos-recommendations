@@ -66,64 +66,38 @@ Settings are saved to `.cache/settings.json` for future runs.
 Run the tool with flags for automation:
 
 ```bash
-npx retro-curator --mode ssh --os muos --ip 10.0.0.80 --rom-path /mnt/sdcard/ROMS ...
+npx retro-curator --os muos --ip 10.0.0.80 --roms-path /mnt/sdcard/ROMS ...
 ```
 
 All required configuration must be provided via flags. The tool will not prompt for any settings.
 
 ## Command-Line Flags
 
-### Connection Flags
+All flags are optional in interactive mode. In non-interactive mode, required flags must be provided.
 
-| Flag | Alias | Description | Required |
-|------|-------|-------------|----------|
-| `--mode` | `-m` | Connection mode: `ssh` or `local` | Yes (non-interactive) |
-| `--os` | `-o` | Device OS type: `muos` or `spruceos` | Yes (non-interactive) |
-| `--ip` | `-i` | Device IP address (SSH mode only) | Yes (SSH mode) |
-| `--local-path` | `-l` | Local folder path (local mode only) | Yes (local mode) |
-
-### Path Flags
-
-| Flag | Description | Required | Notes |
-|------|-------------|----------|-------|
-| `--rom-path` | ROM path for muOS | Yes (muOS) | Single path |
-| `--rom-paths` | ROM paths for SpruceOS (comma-separated) | Yes (SpruceOS) | Multiple paths supported |
-| `--collection-path` | `-c` | Collection output path | Yes (non-interactive) | Where collections will be deployed |
-
-### Collection Flags
-
-| Flag | Description | Required | Default |
-|------|-------------|----------|---------|
-| `--categories` | Comma-separated collection categories | No | `Essentials,Franchises,Special` | Available: `Essentials`, `Franchises`, `Genres`, `Moods`, `Special` |
-| `--missing-roms` | How to handle missing ROMs: `mark` or `omit` | No | `mark` (muOS), `omit` (SpruceOS) |
-| `--numbers` | `-n` | Display numbers in collections | No | `true` |
-| `--no-numbers` | Disable numbers in collections | No | - |
-| `--deploy` | `-d` | Auto deploy collections after generation | No | `true` |
-| `--no-deploy` | Skip deployment | No | - |
-| `--clear-existing` | Clear existing collections before deploying | No | `false` |
-
-### Cache Flags
-
-| Flag | Description | Required | Default |
-|------|-------------|----------|---------|
-| `--use-cache` | Use cached ROM list | No | `true` (if cache exists) |
-| `--no-use-cache` | Force fresh ROM scan | No | - |
-| `--clear-cache` | Clear ROM cache before running | No | `false` |
-
-### Output Flags
-
-| Flag | Alias | Description | Required |
-|------|-------|-------------|----------|
-| `--quiet` | `-q` | Minimal output | No |
-| `--json` | JSON output format | No |
-| `--dry-run` | Validate and show what would happen (no changes) | No |
-
-### General Flags
-
-| Flag | Alias | Description |
-|------|-------|-------------|
-| `--help` | `-h` | Show help |
-| `--version` | `-v` | Show version number |
+| Flag | Alias | Required | Type/Values | Description | Notes |
+|------|-------|----------|-------------|-------------|-------|
+| **Required (non-interactive mode)** |
+| `--os` | `-o` | Yes* | `muos` \| `spruceos` | Device OS type | *Required in non-interactive mode |
+| `--ip` | `-i` | Optional | string | Device IP address | If provided, uses SSH mode; otherwise uses local mode |
+| **Optional Path Flags (with OS-based defaults)** |
+| `--roms-path` | | No | string | ROMs path(s) (comma-separated, absolute paths) | Default: muOS SSH=`/mnt/sdcard/ROMS`, muOS local=`/Volumes/SDCARD/ROMS`, SpruceOS SSH=`/mnt/sdcard/Roms,/media/sdcard1/Roms`, SpruceOS local=`/Volumes/SDCARD/Roms,/Volumes/SDCARD/media/sdcard1/Roms` |
+| `--collections-path` | `-c` | No | string | Collections output path (absolute path) | Default: muOS SSH=`/mnt/mmc/MUOS/info/collection`, muOS local=`/Volumes/SDCARD/MUOS/info/collection`, SpruceOS SSH=`/mnt/sdcard/Collections`, SpruceOS local=`/Volumes/SDCARD/Collections` |
+| **Optional Configuration Flags** |
+| `--categories` | | No | string | Comma-separated collection categories | Default: `Essentials,Franchises,Special`. Available: `Essentials`, `Franchises`, `Genres`, `Moods`, `Special` |
+| `--missing-roms` | | No | `mark` \| `omit` | How to handle missing ROMs | Default: `mark` (muOS), `omit` (SpruceOS) |
+| `--numbers` | `-n` | No | boolean | Display numbers in collections | Default: `true` |
+| `--no-numbers` | | No | boolean | Disable numbers in collections | Overrides `--numbers` |
+| `--deploy` | `-d` | No | boolean | Auto deploy collections after generation | Default: `true` |
+| `--no-deploy` | | No | boolean | Skip deployment | Overrides `--deploy` |
+| `--clear-existing` | | No | boolean | Clear existing collections before deploying | Default: `false` |
+| `--cache` | | No | boolean | Use cached ROM list | Default: always rescan (no cache) |
+| **Output & Utility Flags** |
+| `--quiet` | `-q` | No | boolean | Minimal output | |
+| `--json` | | No | boolean | JSON output format | |
+| `--dry-run` | | No | boolean | Validate and show what would happen (no changes) | |
+| `--help` | `-h` | No | - | Show help | |
+| `--version` | `-v` | No | - | Show version number | |
 
 ## Usage Examples
 
@@ -138,12 +112,19 @@ Follow the prompts to configure your settings.
 ### Non-Interactive Mode - SSH with muOS
 
 ```bash
+# Using default paths (recommended)
 npx retro-curator \
-  --mode ssh \
   --os muos \
   --ip 10.0.0.80 \
-  --rom-path /mnt/sdcard/ROMS \
-  --collection-path /mnt/mmc/MUOS/info/collection \
+  --categories Essentials,Franchises \
+  --deploy
+
+# With custom paths
+npx retro-curator \
+  --os muos \
+  --ip 10.0.0.80 \
+  --roms-path /mnt/sdcard/ROMS \
+  --collections-path /mnt/mmc/MUOS/info/collection \
   --categories Essentials,Franchises \
   --deploy
 ```
@@ -151,12 +132,18 @@ npx retro-curator \
 ### Non-Interactive Mode - Local Folder with SpruceOS
 
 ```bash
+# Using default paths (recommended)
 npx retro-curator \
-  --mode local \
   --os spruceos \
-  --local-path /Volumes/SDCARD \
-  --rom-paths Roms,/media/sdcard1/Roms \
-  --collection-path Collections \
+  --categories Essentials,Special \
+  --no-deploy \
+  --quiet
+
+# With custom paths (comma-separated for multiple ROM locations)
+npx retro-curator \
+  --os spruceos \
+  --roms-path /Volumes/SDCARD/Roms,/Volumes/SDCARD/media/sdcard1/Roms \
+  --collections-path /Volumes/SDCARD/Collections \
   --categories Essentials,Special \
   --no-deploy \
   --quiet
@@ -166,11 +153,8 @@ npx retro-curator \
 
 ```bash
 npx retro-curator \
-  --mode ssh \
   --os muos \
   --ip 10.0.0.80 \
-  --rom-path /mnt/sdcard/ROMS \
-  --collection-path /mnt/mmc/MUOS/info/collection \
   --dry-run
 ```
 
@@ -178,25 +162,29 @@ npx retro-curator \
 
 ```bash
 npx retro-curator \
-  --mode ssh \
   --os muos \
   --ip 10.0.0.80 \
-  --rom-path /mnt/sdcard/ROMS \
-  --collection-path /mnt/mmc/MUOS/info/collection \
   --json
 ```
 
-### Clear Cache and Rescan
+### Force Fresh ROM Scan
+
+By default, the tool always performs a fresh scan. To use a cached ROM list instead, add the `--cache` flag:
 
 ```bash
+# Fresh scan (default behavior)
 npx retro-curator \
-  --mode ssh \
+  --os muos \
+  --ip 10.0.0.80
+
+# Use cached ROM list
+npx retro-curator \
   --os muos \
   --ip 10.0.0.80 \
-  --rom-path /mnt/sdcard/ROMS \
-  --collection-path /mnt/mmc/MUOS/info/collection \
-  --clear-cache
+  --cache
 ```
+
+Note: The cache is automatically replaced whenever a fresh scan is performed.
 
 ## SSH Configuration
 
@@ -306,7 +294,7 @@ All collections are stored in a single JSON file: `/mnt/sdcard/Collections/colle
 
 - Ensure ROM files are in the configured ROMs path
 - Check that ROM filenames are reasonably similar to game names
-- Delete `.cache/cache.json` to force a fresh scan
+- By default, the tool always performs a fresh scan. Use `--cache` to use a cached ROM list instead.
 
 ### Missing ROMs
 

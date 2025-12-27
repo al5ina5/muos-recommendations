@@ -51,20 +51,15 @@ async function main() {
             process.exit(1);
         }
 
-        // Clear cache if requested
-        if (flags.clearCache && fs.existsSync(CACHE_FILE)) {
-            fs.removeSync(CACHE_FILE);
-            if (!flags.quiet) {
-                console.log(chalk.green('[SUCCESS] ROM cache cleared'));
-            }
-        }
-
         // Convert flags to settings
         let answers = flagsToSettings(flags);
 
-        // Adjust useCache based on cache file existence
-        const hasRomCache = fs.existsSync(CACHE_FILE);
-        answers.useCache = answers.useCache && hasRomCache;
+        // If --cache flag was provided, only use cache if it exists
+        // If no --cache flag, useCache is already false (always rescan)
+        if (answers.useCache) {
+            const hasRomCache = fs.existsSync(CACHE_FILE);
+            answers.useCache = hasRomCache;
+        }
 
         // Show summary unless quiet mode
         if (!flags.quiet && !flags.json) {

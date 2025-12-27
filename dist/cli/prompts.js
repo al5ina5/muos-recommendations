@@ -1,22 +1,10 @@
 import inquirer from 'inquirer';
 import fs from 'fs-extra';
+import path from 'path';
 import chalk from 'chalk';
 import { CACHE_FILE, SETTINGS_FILE } from '../constants.js';
 export async function promptForSettings() {
-    // First, ask for connection mode
-    const connectionModeAnswer = await inquirer.prompt([
-        {
-            type: 'list',
-            name: 'connectionMode',
-            message: 'How do you want to access your device?',
-            choices: [
-                { name: 'SSH (remote device on network)', value: 'ssh' },
-                { name: 'Local Folder (SD card mounted or local folder)', value: 'local' }
-            ],
-            default: 'ssh'
-        }
-    ]);
-    // Ask for OS type
+    // Ask for OS type first
     const osTypeAnswer = await inquirer.prompt([
         {
             type: 'list',
@@ -29,9 +17,24 @@ export async function promptForSettings() {
             default: 'muos'
         }
     ]);
+    // Ask if using SSH (IP provided) or local mode
+    const connectionAnswer = await inquirer.prompt([
+        {
+            type: 'list',
+            name: 'connectionType',
+            message: 'How do you want to access your device?',
+            choices: [
+                { name: 'SSH (remote device on network)', value: 'ssh' },
+                { name: 'Local Folder (SD card mounted or local folder)', value: 'local' }
+            ],
+            default: 'ssh'
+        }
+    ]);
     // Connection-specific questions
+    let connectionMode;
     let connectionDetails = {};
-    if (connectionModeAnswer.connectionMode === 'ssh') {
+    if (connectionAnswer.connectionType === 'ssh') {
+        connectionMode = 'ssh';
         const sshAnswers = await inquirer.prompt([
             {
                 type: 'input',
@@ -49,88 +52,87 @@ export async function promptForSettings() {
         connectionDetails = sshAnswers;
     }
     else {
-        const localAnswers = await inquirer.prompt([
-            {
-                type: 'input',
-                name: 'localPath',
-                message: 'Enter the path to your local folder (SD card mount point or local folder):',
-                validate: (input) => {
-                    if (!input.trim()) {
-                        return 'Local folder path is required';
-                    }
-                    if (!fs.existsSync(input)) {
-                        return `Path does not exist: ${input}`;
-                    }
-                    return true;
-                }
-            }
-        ]);
-        connectionDetails = localAnswers;
+        connectionMode = 'local';
     }
-    // Determine default paths based on OS
+    // Determine default paths based on OS and mode
     let defaultRomPath;
     let defaultRomPaths;
     let defaultCollectionPath;
     if (osTypeAnswer.osType === 'spruceos') {
         // SpruceOS supports multiple ROM paths
-        defaultRomPaths = connectionModeAnswer.connectionMode === 'ssh'
+        defaultRomPaths = connectionMode === 'ssh'
             ? ['/mnt/sdcard/Roms', '/media/sdcard1/Roms']
-            : ['Roms'];
-        defaultRomPath = defaultRomPaths[0]; // Keep for backward compatibility
-        defaultCollectionPath = connectionModeAnswer.connectionMode === 'ssh'
+            : ['/Volumes/SDCARD/Roms', '/Volumes/SDCARD/media/sdcard1/Roms'];
+        defaultRomPath = defaultRomPaths[0];
+        defaultCollectionPath = connectionMode === 'ssh'
             ? '/mnt/sdcard/Collections'
-            : 'Collections';
+            : '/Volumes/SDCARD/Collections';
     }
     else {
         // muOS uses single path
-        defaultRomPath = connectionModeAnswer.connectionMode === 'ssh'
+        defaultRomPath = connectionMode === 'ssh'
             ? '/mnt/sdcard/ROMS'
-            : 'ROMS';
-        defaultCollectionPath = connectionModeAnswer.connectionMode === 'ssh'
+            : '/Volumes/SDCARD/ROMS';
+        defaultCollectionPath = connectionMode === 'ssh'
             ? '/mnt/mmc/MUOS/info/collection'
-            : 'MUOS/info/collection';
+            : '/Volumes/SDCARD/MUOS/info/collection';
     }
     const pathQuestions = [];
-    if (osTypeAnswer.osType === 'spruceos') {
-        // SpruceOS: Ask for multiple ROM paths (don't ask for single romPath)
-        pathQuestions.push({
-            type: 'input',
-            name: 'romPaths',
-            message: connectionModeAnswer.connectionMode === 'ssh'
-                ? 'Enter ROM paths (comma-separated, e.g., /mnt/sdcard/Roms,/media/sdcard1/Roms):'
-                : 'Enter ROM paths (comma-separated, relative to local folder root):',
-            default: defaultRomPaths.join(','),
-            filter: (input) => {
-                // Split by comma and trim each path
-                return input.split(',').map((p) => p.trim()).filter((p) => p.length > 0);
+    // Single ROMs path question (supports comma-separated for SpruceOS)
+    const romsPathDefault = osTypeAnswer.osType === 'spruceos'
+        ? defaultRomPaths.join(',')
+        : defaultRomPath;
+    pathQuestions.push({
+        type: 'input',
+        name: 'romsPath',
+        message: 'Enter ROMs path(s) (comma-separated, absolute paths):',
+        default: romsPathDefault,
+        filter: (input) => {
+            // Split by comma and trim each path
+            return input.split(',').map((p) => p.trim()).filter((p) => p.length > 0);
+        },
+        validate: (input) => {
+            const paths = input.split(',').map((p) => p.trim()).filter((p) => p.length > 0);
+            if (paths.length === 0) {
+                return 'At least one ROM path is required';
             }
-        });
-        // Set romPath to first path for backward compatibility (but don't prompt for it)
-        defaultRomPath = defaultRomPaths[0];
-    }
-    else {
-        // muOS: Single ROM path
-        pathQuestions.push({
-            type: 'input',
-            name: 'romPath',
-            message: connectionModeAnswer.connectionMode === 'ssh'
-                ? 'Enter your ROMs folder path on device:'
-                : 'Enter your ROMs folder path (relative to local folder root):',
-            default: defaultRomPath
-        });
-    }
+            // In local mode, validate paths exist
+            if (connectionMode === 'local') {
+                for (const p of paths) {
+                    if (!fs.existsSync(p)) {
+                        return `Path does not exist: ${p}`;
+                    }
+                }
+            }
+            return true;
+        }
+    });
     pathQuestions.push({
         type: 'input',
         name: 'collectionPath',
-        message: connectionModeAnswer.connectionMode === 'ssh'
-            ? 'Enter collection output path on device:'
-            : 'Enter collection output path (relative to local folder root):',
-        default: defaultCollectionPath
+        message: 'Enter collections output path (absolute path):',
+        default: defaultCollectionPath,
+        validate: (input) => {
+            if (!input.trim()) {
+                return 'Collections path is required';
+            }
+            return true;
+        }
     });
     const pathAnswers = await inquirer.prompt(pathQuestions);
-    // Ensure romPath exists for backward compatibility
-    if (osTypeAnswer.osType === 'spruceos' && pathAnswers.romPaths) {
-        pathAnswers.romPath = pathAnswers.romPaths[0]; // Use first path as primary
+    // Convert romsPath to romPath and romPaths for backward compatibility
+    const romsPaths = pathAnswers.romsPath || [];
+    pathAnswers.romPath = romsPaths[0];
+    if (romsPaths.length > 1) {
+        pathAnswers.romPaths = romsPaths;
+    }
+    // Derive localPath from roms path for local mode (common parent directory)
+    let localPath;
+    if (connectionMode === 'local') {
+        const firstRomPath = pathAnswers.romPath || (pathAnswers.romPaths ? pathAnswers.romPaths[0] : '');
+        if (firstRomPath) {
+            localPath = path.dirname(firstRomPath);
+        }
     }
     const hasCache = fs.existsSync(CACHE_FILE);
     let cacheInfo = {};
@@ -164,17 +166,10 @@ export async function promptForSettings() {
             type: 'confirm',
             name: 'useCache',
             message: hasCache && cacheInfo.age
-                ? `Found cached ROM list (${cacheInfo.romCount || 'unknown'} ROMs, ${cacheInfo.age} old). Use it?`
-                : 'Found a cached ROM list. Use it?',
-            default: true,
-            when: () => hasCache
-        },
-        {
-            type: 'confirm',
-            name: 'clearCache',
-            message: 'Clear ROM cache and rescan?',
+                ? `Found cached ROM list (${cacheInfo.romCount || 'unknown'} ROMs, ${cacheInfo.age} old). Use it? (No = rescan)`
+                : 'Found a cached ROM list. Use it? (No = rescan)',
             default: false,
-            when: (answers) => hasCache && !answers.useCache
+            when: () => hasCache
         },
         {
             type: 'checkbox',
@@ -221,13 +216,9 @@ export async function promptForSettings() {
         }
     ];
     const preferences = await inquirer.prompt(preferenceQuestions);
-    // Ensure useCache has a default value if not prompted
+    // Default: no cache (always rescan)
+    // Only use cache if user explicitly chooses to (or if --cache flag provided in non-interactive mode)
     const useCache = preferences.useCache !== undefined ? preferences.useCache : false;
-    // Clear cache if requested
-    if (preferences.clearCache && fs.existsSync(CACHE_FILE)) {
-        fs.removeSync(CACHE_FILE);
-        console.log(chalk.green('[SUCCESS] ROM cache cleared'));
-    }
     // SpruceOS requires omitting missing ROMs (cannot list missing files)
     if (osTypeAnswer.osType === 'spruceos' && preferences.missingHandle === 'mark') {
         console.log(chalk.yellow('\n[WARNING] SpruceOS does not support listing missing files.'));
@@ -235,9 +226,10 @@ export async function promptForSettings() {
         preferences.missingHandle = 'omit';
     }
     return {
-        connectionMode: connectionModeAnswer.connectionMode,
+        connectionMode: connectionMode,
         osType: osTypeAnswer.osType,
         ...connectionDetails,
+        localPath: localPath,
         ...pathAnswers,
         ...preferences,
         useCache

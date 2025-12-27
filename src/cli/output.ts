@@ -9,8 +9,6 @@ export function displaySummary(settings: Settings): void {
     console.log(chalk.white(`  OS Type: ${chalk.yellow(settings.osType === 'muos' ? 'muOS' : 'SpruceOS (Miyoo Flip)')}`));
     if (settings.connectionMode === 'ssh') {
         console.log(chalk.white(`  Device IP: ${chalk.yellow(settings.ip || 'N/A')}`));
-    } else {
-        console.log(chalk.white(`  Local Folder Path: ${chalk.yellow(settings.localPath || 'N/A')}`));
     }
     if (settings.osType === 'spruceos' && settings.romPaths) {
         console.log(chalk.white(`  ROMs Paths: ${chalk.yellow(settings.romPaths.join(', '))}`));

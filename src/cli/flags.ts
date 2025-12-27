@@ -1,15 +1,10 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+import path from 'path';
 import { ParsedFlags, Settings } from '../types.js';
 
 export function parseFlags(): ParsedFlags {
     const argv = yargs(hideBin(process.argv))
-        .option('mode', {
-            alias: 'm',
-            type: 'string',
-            choices: ['ssh', 'local'],
-            description: 'Connection mode'
-        })
         .option('os', {
             alias: 'o',
             type: 'string',
@@ -19,25 +14,16 @@ export function parseFlags(): ParsedFlags {
         .option('ip', {
             alias: 'i',
             type: 'string',
-            description: 'Device IP (SSH mode only)'
+            description: 'Device IP (SSH mode - if provided, uses SSH; otherwise uses local mode)'
         })
-        .option('local-path', {
-            alias: 'l',
+        .option('roms-path', {
             type: 'string',
-            description: 'Local folder path (local mode only)'
+            description: 'ROMs path(s) (comma-separated, absolute paths)'
         })
-        .option('rom-path', {
-            type: 'string',
-            description: 'ROM path (muOS)'
-        })
-        .option('rom-paths', {
-            type: 'string',
-            description: 'ROM paths (SpruceOS, comma-separated)'
-        })
-        .option('collection-path', {
+        .option('collections-path', {
             alias: 'c',
             type: 'string',
-            description: 'Collection output path'
+            description: 'Collections output path'
         })
         .option('categories', {
             type: 'string',
@@ -70,17 +56,9 @@ export function parseFlags(): ParsedFlags {
             type: 'boolean',
             description: 'Clear existing collections'
         })
-        .option('use-cache', {
+        .option('cache', {
             type: 'boolean',
-            description: 'Use cached ROM list'
-        })
-        .option('no-use-cache', {
-            type: 'boolean',
-            description: 'Force fresh ROM scan'
-        })
-        .option('clear-cache', {
-            type: 'boolean',
-            description: 'Clear ROM cache before running'
+            description: 'Use cached ROM list (default: always rescan)'
         })
         .option('quiet', {
             alias: 'q',
@@ -102,15 +80,17 @@ export function parseFlags(): ParsedFlags {
     const flags: ParsedFlags = {};
 
     // Convert yargs result to ParsedFlags
-    if (argv.mode) flags.mode = argv.mode as 'ssh' | 'local';
-    if (argv.os) flags.os = argv.os as 'muos' | 'spruceos';
+    // Mode will be inferred later from --ip presence in flagsToSettings()
     if (argv.ip) flags.ip = argv.ip;
-    if (argv['local-path']) flags.localPath = argv['local-path'];
-    if (argv['rom-path']) flags.romPath = argv['rom-path'];
-    if (argv['rom-paths']) {
-        flags.romPaths = argv['rom-paths'].split(',').map(p => p.trim()).filter(p => p.length > 0);
+    if (argv.os) flags.os = argv.os as 'muos' | 'spruceos';
+    if (argv['roms-path']) {
+        const paths = argv['roms-path'].split(',').map((p: string) => p.trim()).filter((p: string) => p.length > 0);
+        flags.romPath = paths[0];
+        if (paths.length > 1) {
+            flags.romPaths = paths;
+        }
     }
-    if (argv['collection-path']) flags.collectionPath = argv['collection-path'];
+    if (argv['collections-path']) flags.collectionPath = argv['collections-path'];
     if (argv.categories) {
         flags.categories = argv.categories.split(',').map(c => c.trim()).filter(c => c.length > 0);
     }
@@ -120,9 +100,7 @@ export function parseFlags(): ParsedFlags {
     if (argv.deploy !== undefined) flags.deploy = argv.deploy;
     if (argv['no-deploy']) flags.deploy = false;
     if (argv['clear-existing']) flags.clearExisting = argv['clear-existing'];
-    if (argv['use-cache'] !== undefined) flags.useCache = argv['use-cache'];
-    if (argv['no-use-cache']) flags.useCache = false;
-    if (argv['clear-cache']) flags.clearCache = argv['clear-cache'];
+    if (argv.cache !== undefined) flags.useCache = argv.cache;
     if (argv.quiet) flags.quiet = argv.quiet;
     if (argv.json) flags.json = argv.json;
     if (argv['dry-run']) flags.dryRun = argv['dry-run'];
@@ -143,49 +121,11 @@ export function validateFlags(flags: ParsedFlags): { valid: boolean; errors: str
     }
 
     // Non-interactive mode validation
-    if (!flags.mode) {
-        errors.push('Missing required flag: --mode (ssh or local)');
-    } else if (flags.mode !== 'ssh' && flags.mode !== 'local') {
-        errors.push(`Invalid value for --mode: '${flags.mode}'. Must be 'ssh' or 'local'`);
-    }
-
+    // Mode is inferred from --ip presence: if provided, SSH mode; otherwise, local mode
     if (!flags.os) {
         errors.push('Missing required flag: --os (muos or spruceos)');
     } else if (flags.os !== 'muos' && flags.os !== 'spruceos') {
         errors.push(`Invalid value for --os: '${flags.os}'. Must be 'muos' or 'spruceos'`);
-    }
-
-    if (flags.mode === 'ssh' && !flags.ip) {
-        errors.push('Missing required flag: --ip (required for SSH mode)');
-    }
-
-    if (flags.mode === 'local' && !flags.localPath) {
-        errors.push('Missing required flag: --local-path (required for local mode)');
-    }
-
-    if (flags.os === 'muos' && !flags.romPath) {
-        errors.push('Missing required flag: --rom-path (required for muOS)');
-    }
-
-    if (flags.os === 'spruceos' && !flags.romPaths && !flags.romPath) {
-        errors.push('Missing required flag: --rom-paths or --rom-path (required for SpruceOS)');
-    }
-
-    if (!flags.collectionPath) {
-        errors.push('Missing required flag: --collection-path');
-    }
-
-    // Validate conflicting flags
-    if (flags.mode === 'ssh' && flags.localPath) {
-        errors.push('--local-path is only valid with --mode=local. Use --ip for SSH mode.');
-    }
-
-    if (flags.mode === 'local' && flags.ip) {
-        errors.push('--ip is only valid with --mode=ssh. Use --local-path for local mode.');
-    }
-
-    if (flags.os === 'muos' && flags.romPaths) {
-        errors.push('--rom-paths is only valid with --os=spruceos. Use --rom-path for muOS.');
     }
 
     if (flags.missingRoms && flags.missingRoms !== 'mark' && flags.missingRoms !== 'omit') {
@@ -205,15 +145,55 @@ export function flagsToSettings(flags: ParsedFlags): Settings {
     const defaultCategories = ['Essentials', 'Franchises', 'Special'];
     const defaultMissingRoms = flags.os === 'spruceos' ? 'omit' : 'mark';
 
+    // Infer mode from IP presence: if IP provided, SSH mode; otherwise, local mode
+    const connectionMode: 'ssh' | 'local' = flags.ip ? 'ssh' : 'local';
+
+    // OS-based default paths
+    let defaultRomPath: string;
+    let defaultRomPaths: string[] | undefined;
+    let defaultCollectionPath: string;
+
+    if (flags.os === 'spruceos') {
+        defaultRomPaths = connectionMode === 'ssh'
+            ? ['/mnt/sdcard/Roms', '/media/sdcard1/Roms']
+            : ['/Volumes/SDCARD/Roms', '/Volumes/SDCARD/media/sdcard1/Roms'];
+        defaultRomPath = defaultRomPaths[0];
+        defaultCollectionPath = connectionMode === 'ssh'
+            ? '/mnt/sdcard/Collections'
+            : '/Volumes/SDCARD/Collections';
+    } else {
+        // muOS
+        defaultRomPath = connectionMode === 'ssh'
+            ? '/mnt/sdcard/ROMS'
+            : '/Volumes/SDCARD/ROMS';
+        defaultCollectionPath = connectionMode === 'ssh'
+            ? '/mnt/mmc/MUOS/info/collection'
+            : '/Volumes/SDCARD/MUOS/info/collection';
+    }
+
+    // Use provided paths or defaults
+    const romPath = flags.romPath || defaultRomPath;
+    const romPaths = flags.romPaths || (flags.os === 'spruceos' ? defaultRomPaths : undefined);
+    const collectionPath = flags.collectionPath || defaultCollectionPath;
+
+    // Derive localPath from roms path for local mode (common parent directory)
+    let localPath: string | undefined;
+    if (connectionMode === 'local') {
+        const firstRomPath = romPath;
+        if (firstRomPath) {
+            localPath = path.dirname(firstRomPath);
+        }
+    }
+
     const settings: Settings = {
-        connectionMode: flags.mode!,
+        connectionMode: connectionMode,
         osType: flags.os!,
         ip: flags.ip,
-        localPath: flags.localPath,
-        romPath: flags.romPath || (flags.romPaths ? flags.romPaths[0] : ''),
-        romPaths: flags.romPaths,
-        collectionPath: flags.collectionPath!,
-        useCache: flags.useCache !== undefined ? flags.useCache : true,
+        localPath: localPath,
+        romPath: romPath,
+        romPaths: romPaths,
+        collectionPath: collectionPath,
+        useCache: flags.useCache !== undefined ? flags.useCache : false,
         categories: flags.categories || defaultCategories,
         missingHandle: flags.missingRoms || defaultMissingRoms,
         useNumbers: flags.numbers !== undefined ? flags.numbers : true,

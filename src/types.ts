@@ -13,7 +13,6 @@ export interface ParsedFlags {
     deploy?: boolean;
     clearExisting?: boolean;
     useCache?: boolean;
-    clearCache?: boolean;
     help?: boolean;
     version?: boolean;
     quiet?: boolean;
